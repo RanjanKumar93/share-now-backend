@@ -42,9 +42,9 @@ public class LiveStreamService {
         }
 
         try {
-            boolean clientArrived = session.downloaderConnected.await(ServerConfig.CLIENT_WAIT_TIME, TimeUnit.MINUTES);
+            boolean clientArrived = session.downloaderConnected.await(ServerConfig.CLIENT_WAIT_TIME_MINUTES, TimeUnit.MINUTES);
             if (!clientArrived) {
-                throw new java.util.concurrent.TimeoutException("Downloader failed to connect within the allowed "+ ServerConfig.CLIENT_WAIT_TIME + " minute window.");
+                throw new java.util.concurrent.TimeoutException("Downloader failed to connect within the allowed " + ServerConfig.CLIENT_WAIT_TIME_MINUTES + " minute window.");
             }
 
             byte[] buffer = new byte[4096];
