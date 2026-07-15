@@ -48,6 +48,7 @@ public class FileExpirationService {
                     if (Duration.between(file.createdAt(), now).compareTo(ServerConfig.FILE_LIFESPAN) > 0) {
                         repository.delete(file.inviteCode());
                         Files.deleteIfExists(file.storedPath());
+                        System.out.println("Purged expired Cloud Vault file: " + file.inviteCode());
                     }
                 } else {
                     // --- HARDENED LIVE TUNNEL CONNECTION GUARD ---

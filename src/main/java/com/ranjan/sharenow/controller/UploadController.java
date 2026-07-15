@@ -26,9 +26,36 @@ public class UploadController {
             throw new UnsupportedOperationException("Method not allowed");
         }
 
+        // 🔒 SECURITY GUARD LAYER: Content-Length Pre-Flight Verification Check
+        String contentLengthHeader = exchange.getRequestHeaders().getFirst("Content-Length");
+        if (contentLengthHeader != null && !contentLengthHeader.trim().isEmpty()) {
+            try {
+                long contentLength = Long.parseLong(contentLengthHeader.trim());
+
+                // Validate directly against the dynamic property we defined in ServerConfig
+                if (contentLength > ServerConfig.MAX_FILE_SIZE_BYTES) {
+                    System.err.printf("Rejected payload upload attempt: Content-Length %d exceeds system capacity cap.%n", contentLength);
+                    HttpResponseUtil.badRequest(exchange, "Malformed request: Payload size exceeds the allowed system allocation limit.");
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                HttpResponseUtil.badRequest(exchange, "Malformed request: Content-Length format invalid.");
+                return;
+            }
+        } else {
+            // Drop standard drop mode attempts if Content-Length is missing entirely
+            String path = exchange.getRequestURI().getPath();
+            if (!path.startsWith("/upload/stream/")) {
+                HttpResponseUtil.badRequest(exchange, "Malformed request: Missing Content-Length metadata tracking parameters.");
+                return;
+            }
+        }
+
         String path = exchange.getRequestURI().getPath();
         String query = exchange.getRequestURI().getQuery();
         boolean isLiveMode = query != null && query.contains("mode=live");
+
+        // ... keeping your remaining endpoint evaluation code exactly identical ...
 
         // Step 1: Initialize the memory tunnel mapping framework
         if (isLiveMode && path.equals("/upload/init")) {

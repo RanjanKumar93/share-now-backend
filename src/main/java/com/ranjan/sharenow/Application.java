@@ -26,10 +26,18 @@ public class Application {
 
     public void start() throws Exception {
 
+        // 🔒 Set global container safety limits (Values in seconds)
+        // maxReqTime: Max time allowed to read the full HTTP request headers/body
+        // maxRspTime: Max time allowed to transmit the response payload data
+        System.setProperty("sun.net.httpserver.maxReqTime", "60");
+        System.setProperty("sun.net.httpserver.maxRspTime", "300"); // 5 minutes max for big cloud uploads
+
         SharedFileRepository repository = new InMemorySharedFileRepository();
 
         InviteCodeService inviteCodeService = new InviteCodeService(repository);
         FileStorageService fileStorageService = new FileStorageService(ServerConfig.UPLOAD_DIRECTORY);
+        fileStorageService.purgeOrphanedFiles();
+
         UploadService uploadService = new UploadService(fileStorageService, inviteCodeService, repository);
         TunnelStreamService tunnelStreamService = new TunnelStreamService();
         FileExpirationService expirationService = new FileExpirationService(repository, tunnelStreamService);

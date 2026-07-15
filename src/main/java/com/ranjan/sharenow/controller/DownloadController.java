@@ -1,10 +1,14 @@
 package com.ranjan.sharenow.controller;
 
+import com.ranjan.sharenow.config.ServerConfig;
 import com.ranjan.sharenow.model.SharedFile;
 import com.ranjan.sharenow.service.DownloadService;
 import com.ranjan.sharenow.web.HttpResponseUtil;
 import com.sun.net.httpserver.HttpExchange;
+
 import java.io.OutputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 public class DownloadController {
@@ -16,18 +20,20 @@ public class DownloadController {
     }
 
     public void handle(HttpExchange exchange) throws Exception {
+
         if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
             throw new UnsupportedOperationException("Method not allowed");
         }
 
         String path = exchange.getRequestURI().getPath();
-        String inviteCode = path.substring(path.lastIndexOf('/') + 1);
+        String inviteCode = path.substring(path.lastIndexOf('/') + 1).trim();
 
-        if (inviteCode.trim().isEmpty()) {
-            throw new IllegalArgumentException("Missing invite code parameter.");
+        if (inviteCode.isEmpty()) {
+            throw new IllegalArgumentException("Missing invite code.");
         }
 
         Optional<SharedFile> sharedFileOpt = downloadService.verifyAndGetMetadata(inviteCode);
+
         if (sharedFileOpt.isEmpty()) {
             HttpResponseUtil.notFound(exchange);
             return;
@@ -37,35 +43,51 @@ public class DownloadController {
 
         downloadService.preFlightCheck(sharedFile);
 
-        // NEW HARDENED CODE:
-        String originalName = sharedFile.originalFilename();
+        // ------------------------------------------------------------------
+        // Secure filename handling
+        // ------------------------------------------------------------------
 
-// 1. Remove dangerous Carriage Return / Line Feed characters to prevent HTTP response splitting
-        originalName = originalName.replaceAll("[\\r\\n]", "");
+        String originalFilename = sharedFile.originalFilename();
 
-// 2. Percent-encode the string (turns quotes into %22, spaces into %20, keeping it safe)
-        String encodedName = java.net.URLEncoder.encode(originalName, java.nio.charset.StandardCharsets.UTF_8)
-                .replaceAll("\\+", "%20");
+        // Prevent HTTP header injection
+        originalFilename = originalFilename.replace("\r", "").replace("\n", "");
 
-// 3. Set the headers securely using the modern browser standard
-        exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"file\"; filename*=UTF-8''" + encodedName);
+        // ASCII fallback for older browsers
+        String fallbackFilename = originalFilename.replaceAll("[^\\x20-\\x7E]", "_");
+
+        // RFC 5987 UTF-8 filename for modern browsers
+        String encodedFilename = URLEncoder.encode(originalFilename, StandardCharsets.UTF_8).replace("+", "%20");
+
+        exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"" + fallbackFilename + "\"; filename*=UTF-8''" + encodedFilename);
+
         exchange.getResponseHeaders().set("Content-Type", "application/octet-stream");
 
-        // 2. ADD THE MISSING CORS BLOCKS (Crucial for the Angular application!)
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", com.ranjan.sharenow.config.ServerConfig.ALLOWED_ORIGIN);
+        // ------------------------------------------------------------------
+        // CORS
+        // ------------------------------------------------------------------
+
+        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", ServerConfig.ALLOWED_ORIGIN);
+
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+
         exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-File-Name");
-// Allow the frontend to read the Content-Disposition header if it needs the original filename
+
+        // Allow Angular to read Content-Disposition
         exchange.getResponseHeaders().set("Access-Control-Expose-Headers", "Content-Disposition");
 
-        long payloadSize = downloadService.calculateResponseSize(sharedFile);
-        exchange.sendResponseHeaders(200, payloadSize);
+        // ------------------------------------------------------------------
+        // Stream file
+        // ------------------------------------------------------------------
 
-        try (OutputStream os = exchange.getResponseBody()) {
-            downloadService.pipeData(sharedFile, os);
-            os.flush();
+        long fileSize = downloadService.calculateResponseSize(sharedFile);
+
+        exchange.sendResponseHeaders(200, fileSize);
+
+        try (OutputStream outputStream = exchange.getResponseBody()) {
+            downloadService.pipeData(sharedFile, outputStream);
+            outputStream.flush();
         }
 
-        System.out.println("File successfully processed for token code: " + inviteCode);
+        System.out.printf("Download completed. InviteCode=%s File=%s%n", inviteCode, originalFilename);
     }
 }

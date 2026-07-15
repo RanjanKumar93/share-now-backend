@@ -5,21 +5,40 @@ import java.time.Duration;
 
 public final class ServerConfig {
 
-    public static final int HTTP_PORT = 8080;
+    // HTTP Port Config
+    public static final int HTTP_PORT = Integer.parseInt(
+            System.getenv().getOrDefault("SERVER_PORT", "8080")
+    );
 
-    public static final Path UPLOAD_DIRECTORY = Path.of("uploads");
+    // Dynamic Storage Path
+    public static final Path UPLOAD_DIRECTORY = Path.of(
+            System.getenv().getOrDefault("UPLOAD_DIR", "uploads")
+    );
 
-    public static final Duration FILE_LIFESPAN = Duration.ofMinutes(10);
+    // Expiration Management Timers
+    public static final Duration FILE_LIFESPAN = Duration.ofMinutes(
+            Long.parseLong(System.getenv().getOrDefault("FILE_LIFESPAN_MINUTES", "10"))
+    );
 
-    // Background expiration sweeper checks this duration value
-    public static final Duration LIVE_TUNNEL_TIMEOUT = Duration.ofMinutes(2);
+    public static final Duration LIVE_TUNNEL_TIMEOUT = Duration.ofMinutes(
+            Long.parseLong(System.getenv().getOrDefault("LIVE_TUNNEL_TIMEOUT_MINUTES", "2"))
+    );
 
-    // FIX: Add this numeric property for the streaming Latch timeout calculation loops
-    public static final long CLIENT_WAIT_TIME_MINUTES = 2L;
+    public static final long CLIENT_WAIT_TIME_MINUTES = Long.parseLong(
+            System.getenv().getOrDefault("CLIENT_WAIT_TIME_MINUTES", "2")
+    );
 
-    // Set this to your frontend domain in production (e.g., "https://sharenow.ranjan.com")
-    public static final String ALLOWED_ORIGIN = "http://localhost:4200";
+    // 🔒 NEW: Centralized Upload Payload Limits (Max 1024MB Default)
+    public static final long MAX_FILE_SIZE_BYTES = Long.parseLong(
+            System.getenv().getOrDefault("MAX_FILE_SIZE_BYTES", String.valueOf(1024L * 1024 * 1024))
+    );
+
+    // 🔒 Security CORS Boundary Configuration
+    public static final String ALLOWED_ORIGIN = System.getenv().getOrDefault(
+            "ALLOWED_ORIGIN", "http://localhost:4200"
+    );
 
     private ServerConfig() {
+        // Prevents instantiation instantiation
     }
 }
