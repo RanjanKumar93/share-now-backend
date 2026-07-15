@@ -1,56 +1,52 @@
 # =========================================================================
-# 🏗️ STAGE 1: Build & Compile Environment (Heavy Weight)
+# 🏗️ STAGE 1: Build & Compile Environment (Lightweight Alpine Base)
 # =========================================================================
-# We select a Maven image packed with JDK 25 running on a lightweight Alpine Linux base.
-FROM maven:3.9.9-eclipse-temurin-25-alpine AS builder
+# We start with a generic, stable Alpine Linux image instead of guessing tags
+FROM alpine:3.20 AS builder
 
-# Set the active working directory inside the build sandbox container
+# Install OpenJDK 21 and Maven directly using the Alpine package manager
+# This bypasses the broken Docker Hub tag issue entirely!
+RUN apk add --no-cache openjdk21 maven
+
 WORKDIR /app
 
-# Step 1: Optimization Trick - Copy ONLY the pom.xml first to download dependencies.
-# This heavily utilizes Docker's caching layers so code updates don't trigger re-downloading plugins.
+# Optimize caching layers by copying the descriptor first
 COPY pom.xml .
 
-# Download the Maven project dependency trees ahead of copying source code
+# Download dependencies safely ahead of code transfers
 RUN mvn dependency:go-offline -B
 
-# Step 2: Copy the actual project source tree directories
+# Copy the application source code files
 COPY src ./src
 
-# Compile the source, execute checks, and pack the code into a runnable .jar file
+# Compile and package into a clean executable runnable package
 RUN mvn clean package -DskipTests
 
 # =========================================================================
-# 🛡️ STAGE 2: Secure Production Runtime Environment (Ultra Light)
+# 🛡️ STAGE 2: Secure Production Runtime Environment (JRE 21 Alpine)
 # =========================================================================
-# We throw away the compiler, Maven caches, and source files. We only bring in the execution JRE.
-FROM eclipse-temurin:25-jre-alpine
+# We swap to the official lightweight eclipse-temurin JRE container runtime
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# Create the runtime storage folder directory and enforce strict unprivileged Linux profile user security.
-# Running containers as 'root' leaves the server vulnerable to runtime escapes.
+# Configure unprivileged non-root sandbox execution spaces
 RUN mkdir uploads && \
     addgroup -S appgroup && \
     adduser -S appuser -G appgroup
 
-# Copy ONLY the optimized compiled executable .jar file out of Stage 1 (builder) into Stage 2
+# Grab the compiled .jar file output directly out of the builder step
 COPY --from=builder /app/target/share-now-1.0-SNAPSHOT.jar app.jar
 
-# Adjust local folder directory ownership flags so our non-root app user can read/write files to it safely
+# Adjust local ownership rules so our unprivileged user has read/write access
 RUN chown -R appuser:appgroup /app
 
-# Switch execution execution rules over to the unprivileged profile user
 USER appuser
-
-# Document that the application container expects runtime execution network exposure on port 8080
 EXPOSE 8080
 
-# Configure production environment variables with safe defaults (Overridable in deployment)
 ENV SERVER_PORT=8080
 ENV ALLOWED_ORIGIN=http://localhost:4200
 ENV UPLOAD_DIR=/app/uploads
 ENV MAX_FILE_SIZE_BYTES=524288000
 
-# Execute the Java process binary package directly
 ENTRYPOINT ["java", "-jar", "app.jar"]
