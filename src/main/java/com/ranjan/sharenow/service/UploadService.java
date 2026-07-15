@@ -1,5 +1,6 @@
 package com.ranjan.sharenow.service;
 
+import com.ranjan.sharenow.config.ServerConfig;
 import com.ranjan.sharenow.dto.UploadResponse;
 import com.ranjan.sharenow.model.ShareType;
 import com.ranjan.sharenow.model.SharedFile;
@@ -32,6 +33,8 @@ public class UploadService {
         SharedFile sharedFile = new SharedFile(inviteCode, originalFilename, storedPath, Instant.now(), ShareType.STORED);
         repository.save(sharedFile);
 
-        return new UploadResponse(inviteCode, originalFilename);
+        long expiresAt = System.currentTimeMillis() + ServerConfig.FILE_LIFESPAN.toMillis();
+
+        return new UploadResponse(inviteCode, originalFilename, expiresAt);
     }
 }

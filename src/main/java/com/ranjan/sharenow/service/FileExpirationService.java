@@ -57,7 +57,7 @@ public class FileExpirationService {
                         // Check if the downloader has NOT connected yet (latch is still at 1)
                         if (session.downloaderConnected.getCount() > 0) {
                             // The uploader initialized it, but no downloader claimed it within 2 minutes
-                            if (Duration.between(file.createdAt(), now).compareTo(ServerConfig.FILE_LIFESPAN) > 0) {
+                            if (Duration.between(file.createdAt(), now).compareTo(ServerConfig.LIVE_TUNNEL_TIMEOUT) > 0) {
                                 System.out.println("Cleaning up un-connected, abandoned live tunnel session: " + file.inviteCode());
                                 tunnelService.closeTunnel(file.inviteCode());
                                 repository.delete(file.inviteCode());

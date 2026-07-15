@@ -18,7 +18,7 @@ public final class ServerConfig {
     public static final long CLIENT_WAIT_TIME_MINUTES = 2L;
 
     // Set this to your frontend domain in production (e.g., "https://sharenow.ranjan.com")
-    public static final String ALLOWED_ORIGIN = "http://localhost:3000";
+    public static final String ALLOWED_ORIGIN = "http://localhost:4200";
 
     private ServerConfig() {
     }

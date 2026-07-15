@@ -51,6 +51,13 @@ public class DownloadController {
         exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"file\"; filename*=UTF-8''" + encodedName);
         exchange.getResponseHeaders().set("Content-Type", "application/octet-stream");
 
+        // 2. ADD THE MISSING CORS BLOCKS (Crucial for the Angular application!)
+        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", com.ranjan.sharenow.config.ServerConfig.ALLOWED_ORIGIN);
+        exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-File-Name");
+// Allow the frontend to read the Content-Disposition header if it needs the original filename
+        exchange.getResponseHeaders().set("Access-Control-Expose-Headers", "Content-Disposition");
+
         long payloadSize = downloadService.calculateResponseSize(sharedFile);
         exchange.sendResponseHeaders(200, payloadSize);
 

@@ -1,5 +1,6 @@
 package com.ranjan.sharenow.controller;
 
+import com.ranjan.sharenow.config.ServerConfig;
 import com.ranjan.sharenow.dto.MultipartFile;
 import com.ranjan.sharenow.dto.UploadResponse;
 import com.ranjan.sharenow.parser.MultipartParser;
@@ -38,7 +39,13 @@ public class UploadController {
             }
 
             String inviteCode = liveStreamService.initializeTunnel(filename);
-            HttpResponseUtil.ok(exchange, inviteCode);
+            long expiresAtEpochMillis = System.currentTimeMillis() + ServerConfig.LIVE_TUNNEL_TIMEOUT.toMillis();
+
+            // Package it into your DTO record
+            UploadResponse response = new UploadResponse(inviteCode, filename, expiresAtEpochMillis);
+
+            // Send it as structured JSON
+            HttpResponseUtil.jsonOk(exchange, response.toJson());
             return;
         }
 
@@ -56,6 +63,6 @@ public class UploadController {
         // Default: Traditional Stored Cloud Drop Mode (Keeps Multi-part compatibility for traditional forms)
         MultipartFile multipartFile = multipartParser.parse(exchange.getRequestBody(), exchange.getRequestHeaders().getFirst("Content-Type"));
         UploadResponse response = uploadService.upload(multipartFile.filename(), multipartFile.inputStream());
-        HttpResponseUtil.ok(exchange, response.inviteCode());
+        HttpResponseUtil.jsonOk(exchange, response.toJson());
     }
 }
